@@ -1,0 +1,26 @@
+\section{Language Models}
+
+A \textbf{language model} is a grammarless, computational model created from collections of text.
+
+They are used to assign scores (e.g. probabilities) to a sequence of words.
+
+\begin{defn}{unigram model}
+    Create a \textbf{frequency table} of all tokens (words) that appear in the collection.
+\end{defn}
+
+Unigram models have insufficient context to model the order of words in a sentence.
+
+\begin{defn}{$n$-gram model}
+    By remembering sequences of $n$ tokens we can predict the $n$-th token given only the previous $n - 1$ tokens as context (\textbf{Markov assumption}).
+    
+    A unigram model is a 1-gram model, bigram model is a 2-gram model, etc.
+
+    However, $n$-gram models require exponentially more space as $n$ increases.
+\end{defn}
+
+The \textbf{count} of an input is the \textit{sum} of the counts of all tokens in the input, while the \textbf{probability} of an input is the \textit{product} of the probabilities of all tokens in the input.
+
+However, if a token does not appear in the collection, its probability is 0,
+resulting in a probability of 0 for the entire input, which is undesirable.
+
+\textbf{1-smoothing} is a technique to avoid this problem. It adds a count of 1 to every token in the collection, even if it does not appear in the input.
