@@ -1,0 +1,79 @@
+In Boolean retrieval, documents are either included or excluded from the result based on whether they contain the query terms.
+
+While accurate, this can yield too many results without any consideration for the relevance of the documents.
+
+\section{Vector Space Model}
+In ranked retrieval, documents are scored from $[0, 1]$ based on how well the document matches the query, and sorted thereafter to yield only the most relevant.
+
+\begin{defn}{scoring: Jaccard coefficient}
+    Let $A$ be the set of terms in the query and $B$ the set of terms in the document.
+
+    The Jaccard coefficient is defined as:\vspace{0.8em}
+    \begin{align*}
+        \operatorname{Jaccard}(A, B) & = \frac{|A \cap B|}{|A \cup B|} & \text{ if } A \cap B \neq \emptyset \\
+        \operatorname*{Jaccard}(A, B) & = 0 & \text{ if } A \cap B = \emptyset \\
+        \operatorname*{Jaccard}(A, A) & = 1
+    \end{align*}
+\end{defn}
+
+However, the Jaccard coefficient consider neither the \textbf{term frequency (tf)} nor the \textbf{document frequency (df)}.
+
+A document which contains the query terms more times should be scored higher than a document which contains the query terms fewer times, but the Jaccard coefficient assumes $tf = 1$.
+
+Furthermore, rare terms are more informative than frequent terms, so we introduce the \textbf{inverse document frequency (idf)} weighting scheme.
+
+\begin{defn}{tf-idf weighting}
+    Let $tf_{t, d}$ be the number of times term $t$ appears in document $d$.
+
+    Also, let $df_t$ be the number of documents which contain $t$, and
+    $N$ the number of documents in the collection.
+    
+    Then, $idf_t = \log_{10}\left(\frac{N}{df_t}\right)$.
+
+    Then, define the log-frequency weight $w_{t,d}$ as:\vspace{0.5em}
+    \begin{align*}
+        w_{t, d} & = 1 + \log_{10}(tf_{t, d}) & \text{ if } tf_{t, d} > 0 \\
+        w_{t, d} & = 0 & \text{ otherwise }
+    \end{align*}
+
+    Putting the two together, the tf-idf weight ($tf.idf_{t,d}$) \\
+    = $w_{t, d} \times idf_t \\
+    = \left(1 + \log_{10}tf_{t, d}\right) \times \log_{10}\left(N \div df_t\right)$.
+\end{defn}
+
+As such, the tf-idf weight increases with both the number of occurrences of a term in a document \textit{and} its rarity in the collection.
+
+\begin{defn}{scoring: tf-idf}
+    Finally, for each term $t$ in both the query $q$ and document $d$, we define the term score as: \vspace{0.8em}
+    \[ \operatorname*{Score}(q, d) = \sum_{t \in (q \cap d)} tf.idf_{t,d} \]
+\end{defn}
+
+\begin{defn}{vector space model}
+    \textit{Documents and queries} can be represented in a \textbf{tf-idf matrix}, where each document is a column vector of tf-idf weights for each term.
+
+    These $|V|$-dimensional column vectors are sparse.
+\end{defn}
+
+Therefore, we want to rank documents $\overrightarrow{d_i}$ in increasing order of their \textbf{cosine similarity} to the query vector $\overrightarrow{q}$.
+
+In other words, the smaller the angle between $\overrightarrow{d_i}$ and $\overrightarrow{q}$, the more similar they are.
+
+We do not rank by Euclidean distance as the distance between $\overrightarrow{d_i}$ and $\overrightarrow{q}$ is large even if their term distributions are similar.
+
+\begin{defn}{scoring: cosine similarity}
+    \[
+        \cos(\overrightarrow{d}, \overrightarrow{q})
+        = \frac{\overrightarrow{q} \cdot \overrightarrow{d}}{\lvert \overrightarrow{q} \rvert \lvert \overrightarrow{d} \rvert}
+        = \frac{\sum_{i=1}^{|V|}q_i d_i}{\sqrt{\sum_{i=1}^{|V|} q_i^2} \sqrt{\sum_{i=1}^{|V|} d_i^2}}
+    \]
+
+    The square root terms performs \textbf{length normalization} so that weights are comparable across different vectors even if they have different lengths.
+\end{defn}
+
+Queries and documents may have different weighting schemes, in the form $ddd.qqq$.
+
+\begin{defn}{lnc.ltc}
+    document: logarithmic \textit{tf}, no \textit{idf}, with cosine normalization.
+
+    query: logarithmic \textit{tf}, with \textit{idf} and cosine normalization.
+\end{defn}
