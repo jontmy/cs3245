@@ -1,0 +1,95 @@
+\section{Index Compression}
+Index compression decreases the disk space required, increases the speed of postings lists transfer from from disk to memory, and increases the amount of data that can be stored in memory.
+
+\begin{defn}{Heaps' law}
+    $M = kT^b$, where
+
+    $M$ is the vocabulary size (number of distinct terms in the dictionary),
+    $T$ is the number of tokens in the collection,
+    and $30 \leq k \leq 100$ and $b \approx 0.5$.
+\end{defn}
+
+Heaps' law is used to predict the size of the dictionary given the size of the collection.
+
+Next, we define the \textbf{collection frequency (cf)} of a term to be the number of times that it appears in the collection.
+
+This is different from (but positively correlated with) the \textbf{document frequency (df)} of a term, which is the number of documents that contain the term.
+
+\begin{defn}{Zipf's law}
+    $\text{cf}_i = \frac{K}{i}$, where
+
+    $\text{cf}_i$ is the collection frequency of the $i$-th most frequent term,
+    and $K$ is a normalizing constant (typically $K = \text{cf}_1$).
+\end{defn}
+
+Zipf's law is used to predict the collection frequency of a term given its rank.
+
+In general, there are a few very common terms and very many rare terms.
+
+\subsection{Dictionary Compression}
+Every search begins with the dictionary, so keeping its memory footprint small is important.
+
+Each entry in an uncompressed dictionary is typically of the form <term, df, postings pointer>.
+
+However, this means every term has a fixed-width, which not only limits which the maximum length of a term that can be stored, but also wastes space for short terms.
+
+\begin{defn}{dictionary-as-a-string}
+    Every term in the dictionary is concatenated into a single string.
+
+    Each entry in the dictionary is then of the form <term pointer, df, postings pointer>, where each term pointer points to the start of each term.
+\end{defn}
+
+\begin{defn}{blocking}
+    Let $k$ be the number of terms in a block.
+    
+    For each term in a block, prefix it with its length (number of characters).
+
+    Then, only the first term in each block retains a term pointer, while the remaining terms are retrieved by adding the length of all the previous terms to the term pointer of the first term in the block.
+
+    e.g.:
+
+    \code{...7systile9syzygetic8syzygial6syzygy...} \\
+    \code{...\^{}ptr}
+\end{defn}
+
+\begin{defn}{front-coding}
+    Sorted words typically have a long common prefix, so we can take advantage of this by storing the common prefix once and then only storing the suffix for each word.
+
+    An asterisk \code{*} marks the end of the prefix and the start of the first suffix.
+
+    The remaining $k - 1$ suffixes in the block are each prefixed with their length, followed by a diamond $\diamond$, then the suffix itself.
+
+    e.g.
+
+    \code{8automata8automate9automatic10automation} \\
+    \code{8automat*a1$\diamond$e2$\diamond$ic3$\diamond$ion}
+\end{defn}
+
+\subsection{Postings File Compression}
+The postings file contains document IDs which can grow to large integers.
+
+By Zipf's law a small number of terms have very high \textit{cf}s, which implies high \textit{df}s, and as such the gaps should be small.
+
+\begin{defn}{gap encoding}
+    After the first document ID, subsequent values are the difference between the current document ID and the previous document ID.
+\end{defn}
+
+However, it's still inefficient to use the same number of bits to store a small gap versus a large gap.
+
+Therefore, we want to minimize the number of bits used to store the gaps.
+
+\begin{defn}{variable byte encoding}
+    The smallest unit of data is still the byte, of which the first bit will be used as a \textbf{continuation bit}.
+
+    If the continuation bit is 0, then the next byte is part of the same integer.
+    Otherwise, the byte is the last (least significant) byte of the integer.
+
+    Therefore, each byte can only store 7 bits of data, so we need to use multiple bytes to store large integers.
+
+    The postings list will be every single byte from the encoded gaps, concatenated together.
+
+    e.g.
+
+    \code{5 => 10000101} \\
+    \code{214577 => 00001101 00001100 10110001}
+\end{defn}
