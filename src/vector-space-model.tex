@@ -10,8 +10,8 @@ In ranked retrieval, documents are scored from $[0, 1]$ based on how well the do
 
     The Jaccard coefficient is defined as:\vspace{0.8em}
     \begin{align*}
-        \operatorname{Jaccard}(A, B) & = \frac{|A \cap B|}{|A \cup B|} & \text{ if } A \cap B \neq \emptyset \\
-        \operatorname*{Jaccard}(A, B) & = 0 & \text{ if } A \cap B = \emptyset \\
+        \operatorname{Jaccard}(A, B)  & = \frac{|A \cap B|}{|A \cup B|} & \text{ if } A \cap B \neq \emptyset \\
+        \operatorname*{Jaccard}(A, B) & = 0                             & \text{ if } A \cap B = \emptyset    \\
         \operatorname*{Jaccard}(A, A) & = 1
     \end{align*}
 \end{defn}
@@ -27,18 +27,18 @@ Furthermore, rare terms are more informative than frequent terms, so we introduc
 
     Also, let $df_t$ be the number of documents which contain $t$, and
     $N$ the number of documents in the collection.
-    
+
     Then, $idf_t = \log_{10}\left(\frac{N}{df_t}\right)$.
 
     Then, define the log-frequency weight $w_{t,d}$ as:\vspace{0.5em}
     \begin{align*}
         w_{t, d} & = 1 + \log_{10}(tf_{t, d}) & \text{ if } tf_{t, d} > 0 \\
-        w_{t, d} & = 0 & \text{ otherwise }
+        w_{t, d} & = 0                        & \text{ otherwise }
     \end{align*}
 
     Putting the two together, the tf-idf weight ($tf.idf_{t,d}$) \\
     = $w_{t, d} \times idf_t \\
-    = \left(1 + \log_{10}tf_{t, d}\right) \times \log_{10}\left(N \div df_t\right)$.
+        = \left(1 + \log_{10}tf_{t, d}\right) \times \log_{10}\left(N \div df_t\right)$.
 \end{defn}
 
 As such, the tf-idf weight increases with both the number of occurrences of a term in a document \textit{and} its rarity in the collection.
@@ -76,4 +76,6 @@ Queries and documents may have different weighting schemes, in the form $ddd.qqq
     document: logarithmic \textit{tf}, no \textit{idf}, with cosine normalization.
 
     query: logarithmic \textit{tf}, with \textit{idf} and cosine normalization.
+
+    We avoid using \textit{idf} for documents as insertion of new documents would require recomputation of the \textit{idf} for all terms in that document, and normalization for all existing documents, which is inefficient.
 \end{defn}
