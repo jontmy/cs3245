@@ -1,9 +1,15 @@
 \documentclass{article}
-% preamble v3.4
+% preamble v3.6
 
 % v3.4
 % - allowed tcolor theorem to break across columns and pages
 % - updated tcolorbox theorem style
+
+% v3.5
+% - added more colors via xcolor
+
+% v3.6
+% - updated lstlisting style
 
 % Layout packages
 \usepackage{geometry}
@@ -42,6 +48,10 @@
 \usepackage[dvipsnames]{xcolor} % custom named colors
 \definecolor{body}{HTML}{555555}
 \definecolor{background}{HTML}{FFFFFF}
+\definecolor{m_purple}{HTML}{C39AC9}
+\definecolor{m_blue}{HTML}{9CD1BB}
+\definecolor{m_red}{HTML}{FF657A}
+\definecolor{m_green}{HTML}{BAD761}
 
 % Image & graphics packages
 % \usepackage{graphicx} - unused (no graphics)
@@ -71,24 +81,21 @@
 
 % Better code environments
 \usepackage{listings}
-\newcommand{\code}[1]{\texttt{#1}}
 \lstset{
-    mathescape,
-    basicstyle=\small\fontfamily{lmvtt}\selectfont,
-    numbers=left,
-    numberstyle=\tiny,
-    frame=tb,
-    tabsize=4,
-    columns=fullflexible,
-    showstringspaces=false,
-    showtabs=false,
-    keepspaces,
-    commentstyle=\color{red},
-    keywordstyle=\color{blue}
+  language=python,
+  showstringspaces=false,
+  columns=flexible,
+  aboveskip=1.5em,
+  belowskip=0.5em,
+  frame=none,
+  numbers=none,
+  basicstyle={\linespread{1.5}\small\ttfamily},
+  commentstyle={\color{body!60}\textit},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=4
 }
-\makeatletter % Remove vertical spacing around verbatim
-\preto{\@verbatim}{\topsep=-4pt \partopsep=0pt}
-\makeatother
+\newcommand{\code}[1]{\texttt{#1}}
 
 % Custom typesetting values
 \setlength{\abovedisplayskip}{0pt}
@@ -172,5 +179,7 @@
     \input{index-compression.tex}
     \part{Ranked Retrieval}
     \input{vector-space-model.tex}
+    % \input{probabilistic-retrieval.tex}
+    \include{revision.tex}
 \end{multicols*}
 \end{document}

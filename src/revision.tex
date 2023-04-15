@@ -1,0 +1,502 @@
+\part{Calculation Reference}
+
+\section{Boolean Retrieval}
+\begin{lstlisting}
+# Given a sequence of tokens A and B
+# and a query Q, construct 2 LMs from A and B:
+lm_a = dict(term -> frequency)
+lm_b = dict(term -> frequency)
+
+# Counting model:
+def count(lm, query_term):
+    if query_term not in lm:
+        return 0
+    return lm[query_term]
+    # for multiple terms, take the sum
+
+# Probability model:
+def probability(lm, query_term):
+    if query_term not in lm:
+        return 0
+    return lm[query_term] / sum(lm.values())
+    # for multiple terms, take the product
+
+# Add-1 smoothing:
+def add_one(lm, collection):
+    for term in collection:
+        if term in lm:
+            lm[term] += 1
+        else:
+            lm[term] = 1
+    # terms outside of the collection are given
+    # a count of 0
+
+# Bigrams:
+def bigram_probability(lm, "foo bar baz"):
+    # unigram style
+    return probability(lm, "foo bar") *
+             probability(lm, "bar baz")
+    # true bigram style
+    return probability(lm, "foo") *
+             probability(lm, "bar" | "foo") *
+             probability(lm, "baz" | "bar")
+    # | denotes conditional probabilities
+\end{lstlisting}
+
+\begin{lstlisting}
+# Indexing:
+def index(collection):
+    # generate sequence of pairs (term, doc_id)
+    pairs = []
+    for document in collection:
+        for term in document:
+            pairs.append((term, document.id))
+    # sort the pairs by term then doc_id
+    # alphabetical order is used for sorting
+    pairs.sort()
+    # create the index
+    index = dict(term -> df, postings(term))
+    postings(term) = list(doc.id if term in doc)
+    return index
+
+# Query processing:
+def and_query(foo, bar):  # foo AND bar
+    posts_foo, df_foo = index[foo]
+    posts_bar, df_bar = index[bar]
+    # merge the postings lists
+    ptr_foo, ptr_bar = &posts_foo[0], &posts_bar[0]
+    result = []
+    while not past the end of either postings:
+        if *ptr_foo == *ptr_bar:
+            result.append(*ptr_foo)
+            ptr_foo++
+            ptr_bar++
+        elif *ptr_foo < *ptr_bar:
+            ptr_foo++
+        else:
+            ptr_bar++
+    # perf: evaluate terms in increasing df
+    # perf: use skip pointers
+
+# Query pre-processing:
+def preprocess(query):
+    query.remove_stop_words()
+    query.remove_punctuation() # normalization
+    query = query.lower() # case folding
+    query.stem() or query.lemmatize()
+    query.add_positional_indices()
+
+def extended_biwords(query):
+    for every phrase starting with a noun and
+        ending with a noun:
+        yield phrase
+
+def add_skip_pointers(postings):
+    interval = floor(sqrt(len(postings)))
+    for i in 1..interval:
+        from = postings[interval * (i - 1)]
+        to = postings[interval * i]
+        from.skip = &to
+
+# Query positional index:
+def phrase_appears?(query, index):
+    for document with all terms in query:
+        # let query be the phrase "foo bar"
+        # get the position lists
+        pos_foo, tf_foo = index["foo"][document.id]
+        pos_bar, tf_bar = index["bar"][document.id]
+        while in both postings list:
+            if "foo" is the n-th word and
+                "bar" is the (n+1)-th word:
+                return true
+            else:
+                advance the pointer into the position
+                list with the smaller doc.id
+    return false
+\end{lstlisting}
+
+\begin{lstlisting}
+    # Permuterm index:
+    def permuterms(term):
+        # add the end token `$`
+        term += '$'
+        rotations = [term]
+        while not term.starts_with('$'):
+            move first character to the end
+            terms.append(term)
+        return rotations
+
+    assert permuterm("motion") == [
+        "motion$", "otion$m", "tion$mo", 
+        "ion$mot", "on$moti", "n$motio", "$motion"
+    ]
+
+    # Wildcard query:
+    def wildcard_permuterm(term):
+        assert '*' in term # wildcard
+        term += '$' # end token
+        while not term.ends_with('*'):
+            move first character to the end
+        return term
+
+    assert wildcard_permuterm("mo*on") == "on$mo*"
+    # will match with any term with a permuterm
+    # starting with the same prefix "on$mo"
+
+    # K-gram index:
+    def k_grams(term, k):
+    """
+    Instead of indexing every possible permuterm,
+    we index only the first k-grams of every
+    permuterm, preventing dictionary size from
+    exploding.
+    """
+        for permuterm in permuterms(term):
+            yield permuterm[:k]
+    
+    assert k_grams("motion", 2) == [
+        "mo", "ot", "ti", "io", "on", "n$", "$m"
+    ]
+
+    def in_wildcard_k_gram_index?(term, index):
+    """
+    May have false positives.
+    """
+        for k_gram in k_grams(term, 2):
+            if k_gram not in index or
+                term not in index[k_gram]:
+                return false
+        return true
+\end{lstlisting}
+
+\begin{lstlisting}
+    # Edit distance:
+    def edit_distance(A, B):
+    """
+    Returns the number of insertions, deletions,
+    or substitutions to transform A into B.
+    """
+        # add empty strings (will affect length)
+        A = '_' + A
+        B = '_' + B
+        M = Matrix(cols = len(A), rows = len(B))
+        # dynamic programming
+        for every column i and row j:
+            up = M[i][j - 1] + 1
+            left = M[i - 1][j] + 1
+            up_left = M[i - 1][j - 1] +
+                1 if A[i] != B[j] else 0
+            # discard out of bounds
+            M[i][j] = min(up, left, up_left)
+        bottom_rightmost = M[-1][-1]
+        return bottom_rightmost # edit distance
+
+    """
+       _  A  V  T
+    _  0  1  2  3
+    A  1  0  1  2
+    P  2  1  1  2
+    T  3  2  2  1
+    """
+    assert edit_distance("AVT", "APT") == 1
+
+    # N-gram overlap:
+    def n_gram_overlap(query, index, n):
+    """
+    Returns the number of n-grams that appear
+    in both the query and the index.
+    """
+        query_n_grams = set(n_grams(query, n))
+        index_n_grams = set(n_grams(index, n))
+        return len(query_n_grams & index_n_grams)
+
+    """
+    index:
+    an: anna, banana, bane
+    ba: banana, bane, cuba
+    na: anna, banana, native
+    """
+    assert n_gram_overlap("anna", index, 2) == 2
+    assert n_gram_overlap("banana", index, 2) == 3
+    assert n_gram_overlap("bane", index, 2) == 2
+    assert n_gram_overlap("cuba", index, 2) == 1
+
+    # Jaccard coefficient:
+    def jaccard(A, B, n):
+    """
+    Accounts for the length of the queries A and B
+    by normalizing.
+    """
+        A_n_grams = set(n_grams(A, n))
+        B_n_grams = set(n_grams(B, n))
+        intersection = A_n_grams & B_n_grams
+        union = A_n_grams | B_n_grams
+        return len(intersection) / len(union)
+
+    assert jaccard("bana", "anna", 2) == 2 / 3
+    assert jaccard("bana", "bane", 2) == 2 / 4
+    assert jaccard("bana", "banana", 2) == 3 / 3
+
+    # Soundex:
+    def soundex(term):
+    """
+    Reduce the number of terms that sound the
+    same to a 4 character code.
+    """
+    # 1. keep the first letter
+    # 2. replace vowels with 0s
+    # 3. replace consonants with their number:
+    #     b, f, p, v -> 1
+    #     c, g, j, k, q, s, x, z -> 2
+    #     d, t -> 3
+    #     l -> 4
+    #     m, n -> 5
+    #     r -> 6
+    # 4. de-dupe consecutive repeated numbers
+    # 5. remove 0s
+    # 6. pad with 0s or truncate to 4 characters
+        pass
+
+    """
+    Onomatopoeia -> On0m0t0p0000 -> O50503010000
+    -> O50503010 -> O5531 -> O553
+    Spencer -> Sp0nc0r -> S105206 -> S105206
+    -> S1526 -> S152
+    """
+    assert soundex("onomatopoeia") == "O553"
+    assert soundex("SPENCER") == "S152"
+\end{lstlisting}
+
+\begin{lstlisting}
+    # Block sort-based indexing:
+    def bsbi(collection, block_size):
+        # create all the blocks
+        while not all documents are processed:
+            if block is full:
+                sort block
+                create postings lists in block
+                write block to disk
+                clear block
+                continue
+            read next document
+            for term in document:
+                get or create term_id for term
+                    in dictionary
+                add (term_id, doc_id) to block
+        # create the last block
+        if block is not empty:
+            sort block
+            create postings lists in block
+            write block to disk
+            clear block
+        # merge the blocks
+        for every pair of blocks a, b:
+            merge(a, b)
+        # undo the term -> term_id mapping
+        for term_id in dictionary:
+            replace term_id with term
+        return (dictionary, postings_lists)
+
+    """
+    document 1: "b", "a"
+    document 2: "a", "c", "b"
+    mapping: "b" -> 1, "a" -> 2, "c" -> 3
+    block 1: [(1, 1), (2, 1), (2, 2)]
+    block 2: [(3, 2), (1, 2)]
+    block 1: {1: [1], 2: [1, 2]}
+    block 2: {3: [2], 1: [2]}
+    merged: {1: [1, 2], 2: [1, 2], 3: [2]}
+    """
+
+    # Single-pass in-memory indexing:
+    def spimi(collection):
+        while not all documents are processed:
+            read next document
+            for term in document:
+                add (term, doc_id) to postings list
+                if memory limit is reached:
+                    sort keys of postings list
+                    write postings list to disk
+                    clear postings list
+        for every pair of blocks a, b:
+            merge(a, b)
+
+    """
+    document 1: "b", "a"
+    document 2: "a", "c", "b"
+    memory limit: 3 pairs
+    block 1: {"b": [1], "a": [1, 2]}
+    block 2: {"c": [2], "b": [2]}
+    merged: {"b": [1, 2], "a": [1, 2], "c": [2]}
+    """
+
+    # MapReduce
+    def map_reduce(collection):
+        # list(k, v)
+        mapped = [(term, 1) for term in document
+            for document in collection]
+        # k, list(v) -> output
+        reduced = [(term, freq(term)) for term
+            in mapped]
+        return reduced
+
+    """
+    document 1: "a", "b", "a"
+    document 2: "a", "c", "b"
+    mapped: [("a", 1), ("b", 1), ("a", 1),
+        ("a", 1), ("c", 1), ("b", 1)]
+    intermediate: [("a", [1, 1, 1]), ("b", [1, 1]),
+        ("c", [1])]
+    reduced: [("a", 3), ("b", 2), ("c", 1)]
+    """
+
+    # Linear merging:
+    def linear_merge(A, B, C..., Z):
+    """
+    1. merge B into A
+    2. merge C into A
+    ...
+    n. merge Z into A
+    """
+        pass
+
+    # Logarithmic merging:
+    def logarithmic_merge(blocks):
+        while any pair of blocks i, j have the
+            same size:
+            merge(i, j)
+    """
+    X(n), where n denotes the size of the block X:
+    A(1) + B(1) -> A(2)
+    A(2) + C(1) -> A(2), C(1)
+    A(2), C(1) + D(1) -> A(2) + C(2) -> A(4)
+    ...
+    """
+\end{lstlisting}
+
+\begin{lstlisting}
+    # Index compression: dictionary as a string:
+    def dict_as_string(dict):
+    """
+    Stores fixed-size pointers to terms in the
+    dictionary instead of storing the variable-
+    length terms themselves.
+    """
+        s = ""
+        for row in dict:
+            s += row.term
+            row.term_ptr = &s[start of term]
+        return s
+
+    """
+    dict(term, ...):
+    operand, ...
+    oeprate, ...
+    operation, ...
+    operator, ...
+    """
+    s = dict_as_string(dict)
+    assert s == "operandoeprateoperationoperator"
+    assert dict[0].term_ptr == &s[0]
+    assert dict[1].term_ptr == &s[7]
+    assert dict[2].term_ptr == &s[15]
+    assert dict[3].term_ptr == &s[24]
+
+    # Index compression: blocking:
+    def blocking(dict, k):
+    """
+    Stores only every k-th pointer to a term,
+    using length of the term as a proxy for
+    removed pointers.
+    """
+        s = ""
+        for row, index in enumerate(dict):
+            s += str(len(row.term)) + row.term
+            if index is a multiple of k:
+                row.term_ptr = &s[start of block]
+        return s
+
+    assert blocking(dict, 2) ==
+        "7operand7operate9operation8operator"
+    assert dict[0].term_ptr == &s[0]
+    assert dict[1].term_ptr is None
+    assert dict[2].term_ptr == &s[17]
+    assert dict[3].term_ptr is None
+
+    # Index compression: front coding:
+    def front_coding(dict, k):
+    """
+    Eliminates common prefixes between terms.
+    """
+        s = ""
+        blocks = chunks(dict, k)
+        for block in blocks:
+            prefix = (longest common prefix
+                for all terms in block)
+            s += str(len(prefix))
+            s += '*'
+            # add the first suffix
+            suffix = block[0][len(prefix):]
+            s += suffix
+            # add the remaining suffixes
+            for term remaining in block:
+                suffix = term[len(prefix):]
+                s += str(len(suffix))
+                s += <> # diamond symbol
+                s += suffix
+            # add the pointer
+            block[0].term_ptr = &s[start of block]
+        return s
+    
+    assert front_coding(dict, 2) ==
+        "7opera*nd2<>te9operat*ion2<>or"
+    assert dict[0].term_ptr == &s[0]
+    assert dict[1].term_ptr is None
+    assert dict[2].term_ptr == &s[15]
+    assert dict[3].term_ptr is None
+\end{lstlisting}
+
+\begin{lstlisting}
+    # Posting list compression: gap encoding
+    def gap_encoding(postings_list):
+    """
+    Stores the difference between the current
+    and the previous document ID instead of
+    storing the document ID itself.
+    """
+        ids = []
+        prev = 0
+        for doc_id in postings_list:
+            ids.append(doc_id - prev)
+            prev = doc_id
+        return ids
+
+    assert gap_encoding(
+        [10, 25, 152, 153, 281, 16666])
+        == [10, 15, 127, 1, 128, 16385]
+
+    # Posting list compression: variable byte
+    # encoding:
+    def variable_byte_encoding(number):
+    """
+    Stores the number using a variable number
+    of bytes instead of a fixed length.
+    The most significant bit of each byte is
+    a continuation bit that indicates whether
+    the next byte is part of the number.
+    """
+        bin = binary repr. of number
+        if len(bin) is not a multiple of 7:
+            left-pad (prepend) bin with 0s
+        for each 7-bit chunk in bin:
+            if chunk is the last (rightmost) chunk:
+                prepend 1 to chunk
+            else:
+                prepend 0 to chunk
+        return concatenation of all chunks
+
+    assert variable_byte_encoding(1) == 0b10000001
+    assert variable_byte_encoding(127) == 0b11111111
+    assert variable_byte_encoding(128) ==
+        0b 00000001 10000000
+\end{lstlisting}
